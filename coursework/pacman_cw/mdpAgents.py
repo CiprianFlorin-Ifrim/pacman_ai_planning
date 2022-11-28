@@ -35,87 +35,6 @@ import random
 import game
 import util
 
-class Grid:
-         
-    # Constructor
-    #
-    # Note that it creates variables:
-    #
-    # grid:   an array that has one position for each element in the grid.
-    # width:  the width of the grid
-    # height: the height of the grid
-    #
-    # Grid elements are not restricted, so you can place whatever you
-    # like at each location. You just have to be careful how you
-    # handle the elements when you use them.
-    def __init__(self, width, height):
-        self.width = width
-        self.height = height
-        subgrid = []
-        for i in range(self.height):
-            row=[]
-            for j in range(self.width):
-                row.append(0)
-            subgrid.append(row)
-
-        self.grid = subgrid
-
-    # Print the grid out.
-    def display(self):       
-        for i in range(self.height):
-            for j in range(self.width):
-                # print grid elements with no newline
-                print self.grid[i][j],
-            # A new line after each line of the grid
-            print 
-        # A line after the grid
-        print
-
-    # The display function prints the grid out upside down. This
-    # prints the grid out so that it matches the view we see when we
-    # look at Pacman.
-    def prettyDisplay(self):       
-        for i in range(self.height):
-            for j in range(self.width):
-                # print grid elements with no newline
-                print self.grid[self.height - (i + 1)][j],
-            # A new line after each line of the grid
-            print 
-        # A line after the grid
-        print
-
-    # testing
-    def createMapArray(self):       
-        for i in range(self.height):
-            for j in range(self.width):
-                # print grid elements with no newline
-                global map_array
-                map_array = [[0]*self.width for i in range(self.height)]
-
-                if self.grid[i][j] == "%":
-                    map_array[j][i] = -1
-                elif self.grid[i][j] == "*":
-                    map_array[j][i] = 1
-
-    
-        
-    # Set and get the values of specific elements in the grid.
-    # Here x and y are indices.
-    def setValue(self, x, y, value):
-        self.grid[y][x] = value
-
-    def getValue(self, x, y):
-        return self.grid[y][x]
-
-    # Return width and height to support functions that manipulate the
-    # values stored in the grid.
-    def getHeight(self):
-        return self.height
-
-    def getWidth(self):
-        return self.width
-
-
 class MDPAgent(Agent):
 
     # Constructor: this gets run when we first invoke pacman.py
@@ -131,25 +50,12 @@ class MDPAgent(Agent):
          self.makeMap(state)
          self.addWallsToMap(state)
          self.updateFoodInMap(state)
-         self.map.display()
 
     # This is what gets run when the game ends.
     def final(self, state):
         print "Looks like I just died!"
 
-    # Make a map by creating a grid of the right size
-    def makeMap(self,state):
-        corners = api.corners(state)
-        print corners
-        height = self.getLayoutHeight(corners)
-        width  = self.getLayoutWidth(corners)
-        self.map = Grid(width, height)
-        
     # Functions to get the height and the width of the grid.
-    #
-    # We add one to the value returned by corners to switch from the
-    # index (returned by corners) to the size of the grid (that damn
-    # "start counting at zero" thing again).
     def getLayoutHeight(self, corners):
         height = -1
         for i in range(len(corners)):
@@ -164,70 +70,208 @@ class MDPAgent(Agent):
                 width = corners[i][0]
         return width + 1
 
-    # Functions to manipulate the map.
-    #
+    # Make a map by creating a grid of the right size
+    def makeMap(self,state):
+        global map_array
+
+        corners = api.corners(state)
+        height = self.getLayoutHeight(corners)
+        width  = self.getLayoutWidth(corners)
+
+        map_array = [[0]*width for i in range(height)]
+
+    def displayMap(self):
+        print('\n'.join(' '.join(map(str,sl)) for sl in map_array))
+        print('\n')
+
     # Put every element in the list of wall elements into the map
     def addWallsToMap(self, state):
         walls = api.walls(state)
         for i in range(len(walls)):
-            self.map.setValue(walls[i][0], walls[i][1], '%')
+            x, y = walls[i][1], walls[i][0]
+            map_array[x][y] = None
+
 
     # Create a map with a current picture of the food that exists.
     def updateFoodInMap(self, state):
         # First, make all grid elements that aren't walls blank.
-        for i in range(self.map.getWidth()):
-            for j in range(self.map.getHeight()):
-                if self.map.getValue(i, j) != '%':
-                    self.map.setValue(i, j, ' ')
         food = api.food(state)
         for i in range(len(food)):
-            self.map.setValue(food[i][0], food[i][1], '*')
+            x, y = food[i][1], food[i][0]
+            map_array[x][y] = 5
+
+    def rewardConvergence(self, state):
+        corners = api.corners(state)
+        walls = api.walls(state)
+        food = api.food(state)
+        ghosts = api.ghosts(state)
+        capsules = api.capsules(state)
+
+        #Get max width and height
+        maxWidth = self.getLayoutWidth(corners) - 1
+        maxHeight = self.getLayoutHeight(corners) - 1
+
+        gamma = 0.8                                                                   #common gamma value
+        reward = -0.04
+
+        for i in range(200):
+            global map_array_upd
+            map_array_upd = map_array                                                       # This will store the old values
+
+            for i in range(maxWidth):
+                for j in range(maxHeight):
+                    if (i, j) not in walls and (i, j) not in ghosts and (i, j) not in capsules:
+                        map_array_upd[i][j] = reward + gamma * self.mapUtility(i, j, map_array, 0)
+
+    def mapUtility(self, x, y, map_used, pacman):
+        # This function calculates the maximum expected utility of a coordinate on the initiated valueMap
+
+        # initialise a dictionary to store utility values
+        self.util_dict = {"n_util": 0.0, "s_util": 0.0, "e_util": 0.0, "w_util": 0.0}
+
+        # valueMap should be a dictionary containing a list of values assigned to every grid
+        self.map_used = map_used
+
+        #north -> [x][y + 1]
+        #south -> [x][y - 1]
+        #east  -> [x+1][y]
+        #west  -> [x-1][y]
+        #stay  -> [x][y]
+
+        # If North is not a wall, then multiply expected utility;
+        # else multiply expected utility of staying in place
+        # If the perpendicular directions are not walls, then multiply expected utility of those
+        # else multiply expected utility of just staying in place
+
+        #north
+        if self.map_used[x][y + 1] != None:
+            n_util = (0.8 * self.map_used[x][y + 1])
+        else:
+            n_util = (0.8 * self.map_used[x][y])
+
+        #east
+        if self.map_used[x+1][y] != None:
+            n_util += (0.1 * self.map_used[x+1][y])
+        else:
+            n_util += (0.1 * self.map_used[x][y])
+
+        #west
+        if self.map_used[x-1][y] != None:
+            n_util += (0.1 * self.map_used[x-1][y])
+        else:
+            n_util += (0.1 * self.map_used[x][y])
+
+        self.util_dict["n_util"] = n_util
+
+
+
+        # Repeat for the rest of the directions
+        #south
+        if self.map_used[x][y - 1] != None:
+            s_util = (0.8 * self.map_used[x][y - 1])
+        else:
+            s_util = (0.8 * self.map_used[x][y])
+
+        #east
+        if self.map_used[x+1][y] != None:
+            s_util += (0.1 * self.map_used[x+1][y])
+        else:
+            s_util += (0.1 * self.map_used[x][y])
+
+        #west
+        if self.map_used[x-1][y] != None:
+            s_util += (0.1 * self.map_used[x-1][y])
+        else:
+            s_util += (0.1 * self.map_used[x][y])
+
+        self.util_dict["s_util"] = s_util
+
+
+
+
+        #east
+        if self.map_used[x+1][y] != None:
+            e_util = (0.8 * self.map_used[x+1][y])
+        else:
+            e_util = (0.8 * self.map_used[x][y])
+
+        #north
+        if self.map_used[x][y + 1] != None:
+            e_util += (0.1 * self.map_used[x][y + 1])
+        else:
+            e_util += (0.1 * self.map_used[x][y])
+
+        #south
+        if self.map_used[x][y - 1] != None:
+            e_util += (0.1 * self.map_used[x][y - 1])
+        else:
+            e_util += (0.1 * self.map_used[x][y])
+
+        self.util_dict["e_util"] = e_util
+
+
+
+        #west
+        if self.map_used[x-1][y] != None:
+            w_util = (0.8 * self.map_used[x-1][y])
+        else:
+            w_util = (0.8 * self.map_used[x][y])
+
+        #north
+        if self.map_used[x][y + 1] != None:
+            w_util += (0.1 * self.map_used[x][y + 1])
+        else:
+            w_util += (0.1 * self.map_used[x][y])
+
+        #south
+        if self.map_used[x][y - 1] != None:
+            w_util += (0.1 * self.map_used[x][y - 1])
+        else:
+            w_util += (0.1 * self.map_used[x][y])
+
+        self.util_dict["w_util"] = w_util
+
+
+
+
+
+
+        # Take the max value in the dictionary of stored utilities
+        # Assign current grid MEU
+        # Return updated valueMap that has transition values
+        if pacman == 0:
+            self.map_used[x-1][y] = max(self.util_dict.values())
+            return self.map_used[x-1][y]
+        else:
+            # return the move with the highest MEU
+            return self.util_dict.keys()[self.util_dict.values().index(max(self.util_dict.values()))]
 
 
     # For now I just move randomly
     def getAction(self, state):
         self.updateFoodInMap(state)
-        self.map.prettyDisplay()
-        self.map.createMapArray()
+        self.displayMap()
+        self.rewardConvergence(state)
 
-        # Get the actions we can try, and remove "STOP" if that is one of them.
         legal_moves = api.legalActions(state)
+        pacman_loc = api.whereAmI(state)
 
-        if Directions.STOP in legal_moves:
-            legal_moves.remove(Directions.STOP)
-
-        # QUESTIONABLE ----------------------------
-
-        # value iteration
-        gamma         = 0.8                                                                   #common gamma value
-        reward        = -0.04
-        initial_state = 0
-
-        prob_forward = 0.8
-        prob_left    = 0.1
-        prob_right   = 0.1
-
-        pacman_loc   = api.whereAmI(state)
         pacman_loc_x = pacman_loc[0]
         pacman_loc_y = pacman_loc[1]
 
-        capsules_loc = api.capsules(state)
-        food_loc     = api.food(state)
-        walls_loc    = api.walls(state)        
-        ghosts_loc   = api.ghosts(state)
+        
 
-        for i in range(len(ghosts_loc)):
-            dist_to_ghosts = util.manhattanDistance(pacman_loc, ghosts_loc[i])
+        if self.mapUtility(pacman_loc_x, pacman_loc_y, map_array_upd, 1) == "n_util":
+            return api.makeMove(Directions.NORTH, legal_moves)
 
-        # QUESTIONABLE ----------------------------
-        print(map_array)
+        if self.mapUtility(pacman_loc_x, pacman_loc_y, map_array_upd, 1) == "s_util":
+            return api.makeMove(Directions.SOUTH, legal_moves)
 
-        # Random choice between the legal options.
-        return api.makeMove(random.choice(legal_moves), legal_moves)
+        if self.mapUtility(pacman_loc_x, pacman_loc_y, map_array_upd, 1) == "e_util":
+            return api.makeMove(Directions.EAST, legal_moves)
 
-
-
-
+        if self.mapUtility(pacman_loc_x, pacman_loc_y, map_array_upd, 1) == "w_util":
+            return api.makeMove(Directions.WEST, legal_moves)
 
 
 
