@@ -119,6 +119,24 @@ class SensingAgent(Agent):
         # Where are the capsules?
         print "Capsule locations:"
         print api.capsules(state)
+
+
+        print "States of ghosts:"
+        print api.ghostStates(state)
+
+        ghost_states = api.ghostStates(state)
+
+        for i in range(len(ghost_states)):
+            print("I is:", i)
+            dist_to_ghost = int(util.manhattanDistance(pacman,ghost_states[i][0]))
+            x, y = int(ghost_states[i][0][1]), int(ghost_states[i][0][0])
+
+            print("Dist, x, y:", dist_to_ghost, x, y)
+
+            if ghost_states[i][1] == 1:
+                print("Eatable")
+            else:
+                print("Not eatable")
         
         # Where is the food?
         print "Food locations: "
