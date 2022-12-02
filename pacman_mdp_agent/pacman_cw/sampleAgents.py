@@ -89,6 +89,18 @@ class SensingAgent(Agent):
         legal = api.legalActions(state)
         print "Legal moves: ", legal
 
+        scores, actions = [], []
+        dirs = ['West', 'Stop', 'East', 'North', 'South']
+        move = [1,2,3,4, 5]
+
+        for i in range(len(legal)):
+            for j in range(len(dirs)):
+                if dirs[j] == legal[i]: 
+                    scores.append(move[i])
+                    actions.append(dirs[i])
+
+        print(scores, actions)
+
         # Where is Pacman?
         pacman = api.whereAmI(state)
         print "Pacman position: ", pacman

@@ -89,6 +89,8 @@ class SensingAgent(Agent):
         legal = api.legalActions(state)
         print "Legal moves: ", legal
 
+
+
         # Where is Pacman?
         pacman = api.whereAmI(state)
         print "Pacman position: ", pacman
@@ -432,3 +434,24 @@ class MapAgent(Agent):
         # Random choice between the legal options.
         return api.makeMove(random.choice(legal), legal)
     
+    def compareCorners(self, state):
+        corners = api.corners(state)
+        h = corners[1][0] + 1
+        w = corners[2][1] + 1
+
+        print(w-1, h-1)
+
+        height = -1
+        for i in range(len(corners)):
+            if corners[i][1] > height:
+                height = corners[i][1]
+        height + 1
+
+        width = -1
+        for i in range(len(corners)):
+            if corners[i][0] > width:
+                width = corners[i][0]
+        width + 1
+
+        print(height, width)
+        print("\n")

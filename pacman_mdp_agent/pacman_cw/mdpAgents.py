@@ -36,103 +36,85 @@ import game
 import util
 
 class MDPAgent(Agent):
-
-    # Constructor: this gets run when we first invoke pacman.py
-    def __init__(self):
-        print "Starting up MDPAgent!"
+    def __init__(self):                                                            # Constructor: this gets run when we first invoke pacman.py
         name = "Pacman"
 
-    # Gets run after an MDPAgent object is created and once there is
-    # game state to access.
     def registerInitialState(self, state):
-         print "Running registerInitialState!"
-         # Make a map of the right size
          self.makeMap(state)
          self.addWallsToMap(state)
-         self.updateFoodInMap(state)
+         #self.displayMap()
 
-    # This is what gets run when the game ends.
-    def final(self, state):
-        print "Looks like I just died!"
-
-    # Functions to get the height and the width of the grid.
-    def getLayoutHeight(self, corners):
-        height = -1
-        for i in range(len(corners)):
-            if corners[i][1] > height:
-                height = corners[i][1]
-        return height + 1
-
-    def getLayoutWidth(self, corners):
-        width = -1
-        for i in range(len(corners)):
-            if corners[i][0] > width:
-                width = corners[i][0]
-        return width + 1
-
-    # Make a map by creating a grid of the right size
-    def makeMap(self,state):
-        global map_array
-
+    def getCorners(self, state):
         corners = api.corners(state)
-        height = self.getLayoutHeight(corners)
-        width  = self.getLayoutWidth(corners)
+        width = corners[1][0] + 1
+        height = corners[2][1] + 1
 
+        return [height, width]
+
+    def makeMap(self,state):
+        height, width = self.getCorners(state)
+
+        global map_array
         map_array = [[0]*width for i in range(height)]
 
     def displayMap(self):
         print('\n'.join(' '.join(map(str,sl)) for sl in map_array))
         print('\n')
 
-    # Put every element in the list of wall elements into the map
     def addWallsToMap(self, state):
         walls = api.walls(state)
+
         for i in range(len(walls)):
             x, y = walls[i][1], walls[i][0]
-            map_array[x][y] = None
-
-
-    # Create a map with a current picture of the food that exists.
-    def updateFoodInMap(self, state):
-        food = api.food(state)
-        for i in range(len(food)):
-            x, y = food[i][1], food[i][0]
-            map_array[x][y] = 5
-
-
-    def updateCapsulesInMap(self, state):
-        capsules = api.capsules(state)
-        for i in range(len(capsules)):
-            x, y = capsules[i][1], capsules[i][0]
-            map_array[x][y] = 20
-
-    def updateGhostsInMap(self, state):
-        # First, make all grid elements that aren't walls blank.
-        ghosts = api.ghosts(state)
-        for i in range(len(ghosts)):
-            x, y = int(ghosts[i][1]), int(ghosts[i][0])
             map_array[x][y] = -1
+
+    def updateFoodInMap(self, state, pacman_loc):
+        food = api.food(state)
+
+        for i in range(len(food)):
+            #dist_to_food = int(util.manhattanDistance(pacman_loc,food[i]))
+
+            x, y = food[i][1], food[i][0]
+            map_array[x][y] = 5  #dist_to_food/2
+
+    def updateCapsulesInMap(self, state, pacman_loc):
+        capsules = api.capsules(state)
+
+        for i in range(len(capsules)):
+            #dist_to_capsule = int(util.manhattanDistance(pacman_loc,capsules[i])) 
+
+            x, y = capsules[i][1], capsules[i][0]
+            map_array[x][y] = 20 #dist_to_capsule/2
+
+    def updateGhostsInMap(self, state, pacman_loc):
+        ghosts = api.ghosts(state)
+
+        for i in range(len(ghosts)):
+            #dist_to_ghost = int(util.manhattanDistance(pacman_loc,ghosts[i]))
+
+            x, y = int(ghosts[i][1]), int(ghosts[i][0])
+            map_array[x][y] = -1#-3/dist_to_ghost
 
     def rewardConvergence(self, state):
         #Get max width and height
-        corners = api.corners(state)
-        maxWidth = self.getLayoutWidth(corners) - 1
-        maxHeight = self.getLayoutHeight(corners) - 1
+        height, width = self.getCorners(state)
 
 
         iterations = 200
+        
+
         while iterations > 0:
-            global map_array_upd
-            map_array_upd = map_array                                                       # This will store the old values
+            global map_array_last
+            map_array_last = map_array
 
             food = api.food(state)
             walls = api.walls(state)
             ghosts = api.ghosts(state)
 
-            for i in range(maxWidth):
-                for j in range(maxHeight):
+            for i in range(width):
+                for j in range(height):
                     if (i,j) not in food and (i,j) not in walls and (i,j) not in ghosts:
-                        map_array_upd[j][i] = self.mapUtility(state, j, i, map_array)
+                        map_array_last[j][i] = self.mapUtility(state, j, i, map_array)
 
             iterations -= 1
 
@@ -143,25 +125,17 @@ class MDPAgent(Agent):
         reward = -0.01
         gamma = 0.98
 
-        corners = api.corners(state)
-        h = corners[1][0] + 1
-        w = corners[2][1] + 1
 
-        #north -> [x][y + 1]
-        #south -> [x][y - 1]
-        #east  -> [x+1][y]
-        #west  -> [x-1][y]
-        #stay  -> [x][y]
-
+        height, width = self.getCorners(state)
 
         east = west = north = south = None
 
 
-        if x < w - 1:
+        if x < width - 1:
             east = map_used[x + 1][y]
         if x > 0:
             west = map_used[x - 1][y]
-        if y < h - 1:
+        if y < height - 1:
             north = map_used[x][y + 1]
         if y > 0:
             south = map_used[x][y - 1]
@@ -221,24 +195,19 @@ class MDPAgent(Agent):
 
     # For now I just move randomly
     def getAction(self, state):
-        self.updateFoodInMap(state)
-        self.updateCapsulesInMap(state)
-        self.updateGhostsInMap(state)
-        self.rewardConvergence(state)
-        #self.displayMap()
-
         pacman_loc = api.whereAmI(state)
 
         pacman_loc_x = pacman_loc[0]
         pacman_loc_y = pacman_loc[1]
 
+        self.updateFoodInMap(state, pacman_loc)
+        self.updateCapsulesInMap(state, pacman_loc)
+        self.updateGhostsInMap(state, pacman_loc)
+        self.rewardConvergence(state)
+
         legal = api.legalActions(state)
         if Directions.STOP in legal:
             legal.remove(Directions.STOP)
         
-        [scores, actions] = self.getActionScores(legal, map_array_upd, pacman_loc_x, pacman_loc_y)
-        max_score_index = scores.index(max(scores))
-        choice = actions[max_score_index]
-        return api.makeMove(choice, legal)
-
-
+        [scores, actions] = self.getActionScores(legal, map_array_last, pacman_loc_x, pacman_loc_y)
+        return api.makeMove(actions[scores.index(max(scores))], legal)
