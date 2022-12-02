@@ -145,6 +145,22 @@ class SensingAgent(Agent):
         # Where are the walls?
         print "Wall locations: "
         print api.walls(state)
+
+        corners = api.corners(state)
+        h = corners[1][0] + 1
+        w = corners[2][1] + 1
+        print("Corners are: ", h, w)
+
+        height = -1
+        for i in range(len(corners)):
+            if corners[i][1] > height:
+                height = corners[i][1]
+
+        width = -1
+        for i in range(len(corners)):
+            if corners[i][0] > width:
+                width = corners[i][0]
+        print ("2nd version:", height + 1, width + 1)
         
         # getAction has to return a move. Here we pass "STOP" to the
         # API to ask Pacman to stay where they are.
